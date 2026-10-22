@@ -1,5 +1,16 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { useEffect, useRef } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
 import { COLORS } from '@/constants/colors';
 
 type AppButtonProps = {
@@ -8,6 +19,7 @@ type AppButtonProps = {
   theme?: 'primary';
   onPress: () => void;
   disabled?: boolean;
+  loading?: boolean;
 };
 
 export default function AppButton({
@@ -15,81 +27,167 @@ export default function AppButton({
   icon,
   theme,
   onPress,
-  disabled,
+  disabled = false,
+  loading = false,
 }: AppButtonProps) {
   const isPrimary = theme === 'primary';
+  const scale = useRef(new Animated.Value(1)).current;
+  const isUnavailable = disabled || loading;
+
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: 1,
+      friction: 7,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  }, [disabled, loading, scale]);
+
+  const animatePress = (pressed: boolean) => {
+    Animated.spring(scale, {
+      toValue: pressed ? 0.97 : 1,
+      friction: 7,
+      tension: 180,
+      useNativeDriver: true,
+    }).start();
+  };
+
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        styles.buttonInner,
-        isPrimary ? styles.primaryFill : styles.secondaryFill,
-        pressed && styles.pressed,
-        disabled && styles.disabled,
+    <Animated.View
+      style={[
+        styles.wrapper,
+        { transform: [{ scale }] },
       ]}
     >
-      <View style={styles.row}>
-        <Ionicons
-          name={icon}
-          size={20}
-          color={isPrimary ? COLORS.textOnPrimary : COLORS.textPrimary}
-        />
-        <Text style={[styles.label, isPrimary && styles.labelPrimary]}>
-          {title}
-        </Text>
-      </View>
-    </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{
+          disabled: isUnavailable,
+          busy: loading,
+        }}
+        onPress={onPress}
+        disabled={isUnavailable}
+        onPressIn={() => animatePress(true)}
+        onPressOut={() => animatePress(false)}
+        style={({ pressed }) => [
+          styles.buttonInner,
+          isPrimary ? styles.primaryFill : styles.secondaryFill,
+          pressed && !isUnavailable && styles.pressed,
+          isUnavailable && styles.disabled,
+        ]}
+      >
+        <View style={styles.row}>
+          {loading ? (
+            <ActivityIndicator
+              size="small"
+              color={
+                isPrimary
+                  ? COLORS.textOnPrimary
+                  : COLORS.primary
+              }
+            />
+          ) : (
+            <Ionicons
+              name={icon}
+              size={22}
+              color={
+                isPrimary
+                  ? COLORS.textOnPrimary
+                  : COLORS.primary
+              }
+            />
+          )}
+
+          <Text
+            style={[
+              styles.label,
+              isPrimary
+                ? styles.labelPrimary
+                : styles.labelSecondary,
+            ]}
+            numberOfLines={1}
+          >
+            {loading ? 'Please wait...' : title}
+          </Text>
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  buttonInner: {
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+  wrapper: {
     width: '100%',
   },
+
+  buttonInner: {
+    width: '100%',
+    minHeight: 58,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   primaryFill: {
     backgroundColor: COLORS.primary,
     borderWidth: 1,
-    borderColor: '#A78BFA',
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  secondaryFill: {
-    backgroundColor: '#151022CC',
-    borderWidth: 1,
-    borderColor: COLORS.cardBorderNeon,
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 0 },
+    borderColor: COLORS.primary,
+    shadowColor: COLORS.primaryDark,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
     shadowOpacity: 0.18,
-    shadowRadius: 6,
+    shadowRadius: 7,
+    elevation: 4,
+  },
+
+  secondaryFill: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1.5,
+    borderColor: COLORS.accent,
+    shadowColor: COLORS.shadow,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
     elevation: 2,
   },
+
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 10,
   },
+
   label: {
     fontSize: 16,
     fontWeight: '600',
+    flexShrink: 1,
+  },
+
+  labelPrimary: {
+    color: COLORS.textOnPrimary,
+    fontWeight: '700',
+  },
+
+  labelSecondary: {
     color: COLORS.textPrimary,
   },
-  labelPrimary: {
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
-  },
+
   pressed: {
-    opacity: 0.85,
+    opacity: 0.9,
   },
+
   disabled: {
     opacity: 0.5,
+    elevation: 0,
+    shadowOpacity: 0,
   },
 });
